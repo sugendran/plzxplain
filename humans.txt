@@ -1,0 +1,16 @@
+/* the humans responsible & colophon */
+/* humanstxt.org */
+
+
+/* TEAM */
+  Software Junkie: Sugendran Ganess
+  Site: http://sugendran.com
+  Twitter: @sugendran
+  Location: Sydney, Australia
+
+/* THANKS */
+  substack: https://github.com/substack/node-browserify
+  harry roberts: http://csswizardry.com/2011/01/the-real-html5-boilerplate/#html5-boilerplate
+  ariya: https://github.com/ariya/esprima
+  codemirror: http://codemirror.net/
+  mozilla: https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API

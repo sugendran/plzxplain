@@ -1,0 +1,25 @@
+{
+  "author": "Sugendran Ganess <sugendran@sugendran.net> (http://sugendran.com)",
+  "name": "plzxplain",
+  "description": "website for plzxplain.com",
+  "version": "0.0.1",
+  "homepage": "http://plzxplain.com",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/sugendran/plzxplain.git"
+  },
+  "scripts": {
+    "postinstall": "browserify src/index.js -o js/main.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "esprima": "*",
+    "browserify": "*",
+    "jquery-browserify": "*"
+  },
+  "optionalDependencies": {},
+  "engines": {
+    "node": "*"
+  }
+}
