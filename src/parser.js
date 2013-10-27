@@ -1,4 +1,4 @@
-var esprima = require("esprima")
+var esprima = require("esprima");
 
 // this parser will take the javascript AST from esprima
 // and then convert it into the info needed to draw a flowchart
@@ -12,9 +12,23 @@ var esprima = require("esprima")
 // this may not properly reflect everything that can be done with javascript
 // but that's not the idea of this project - simple explainations are best
 
+var binaryoperators = {
+	"==": "IS EQUAL TO",
+	"===": "IS EXACTLY EQUAL TO",
+	"<": "IS LESS THAN",
+	">": "IS GREATER THAN",
+	"<=": "IS LESS THAN OR EQUAL TO",
+	">=": "IS GREATER THAN OR EQUAL TO",
+};
+
+function parseNode(node) {
+	return nodeParsers[node.type](node);
+}
+
 var nodeParsers = { };
 nodeParsers["Program"] = function(tree) {
 	var steps = [];
+	// console.info('\n' + JSON.stringify(tree));
 	var body = tree.body;
 	for(var i=0, ii=body.length; i<ii; i++) {
 		var node = body[i];
@@ -38,7 +52,9 @@ nodeParsers["Identifier"] = function(node) {
 	return "`" + node.name + "`";
 };
 nodeParsers["Literal"] = function(node) {
-	if(isFinite(node.value)) {
+	if(typeof node.value === 'boolean') {
+		return node.value ? 'TRUE' : 'FALSE';
+	} else if(isFinite(node.value)) {
 		return parseFloat(node.value);
 	}
 	return "'" + node.value + "'";
@@ -49,12 +65,19 @@ nodeParsers["VariableDeclaration"] = function(node) {
 	for(var i=0, ii=dec.length;i<ii;i++) {
 		var d = dec[i];
 		if(d.type == "VariableDeclarator") {
-			var action = "SET " + nodeParsers[d.id.type](d.id) + " = " + nodeParsers[d.init.type](d.init);
 			result.push({
 				type: "statement",
-				action: action,
-				loc: node.loc
+				action: "DECLARE VARIABLE " + nodeParsers[d.id.type](d.id),
+				loc: d.id.loc
 			});
+			if(d.init) {
+				var action = "SET " + nodeParsers[d.id.type](d.id) + " = " + JSON.stringify(nodeParsers[d.init.type](d.init));
+				result.push({
+					type: "statement",
+					action: action,
+					loc: node.loc
+				});
+			}
 		} else {
 			console.error("Unknown variable declaration: " + JSON.stringify(node));
 		}
@@ -115,21 +138,33 @@ nodeParsers["MemberExpression"] = function(node) {
 nodeParsers["BinaryExpression"] = function(node) {
 	var left = nodeParsers[node.left.type](node.left);
 	var right = nodeParsers[node.right.type](node.right);
-	if(left.constructor !== String)
-	{
-		console.log(JSON.stringify(node));
-		console.log(JSON.stringify(left));
-	}
-	return "(" + left + " " + node.operator + " " + right + ")";
+	var operator = binaryoperators[node.operator] || node.operator;
+	var action = left + " " + operator + " " + right;
+	return action;
+};
+nodeParsers["UnaryExpression"] = function(node) {
+	var test = nodeParsers[node.argument.type](node.argument);
+	var truthyness = node.operator === '!' ? 'IS NOT TRUTHY' : 'IS TRUTHY';
+	var action =  test + " " + truthyness;
+	return action;
 };
 nodeParsers["AssignmentExpression"] = function(node) {
-	var action = "SET " + nodeParsers[node.left.type](node.left) + " " + node.operator + " " + nodeParsers[node.right.type](node.right);
+	var action;
+	var left = nodeParsers[node.left.type](node.left);
+	var right = nodeParsers[node.right.type](node.right);
+	if(node.operator === '=') {
+		action = "SET " + left + " = " + right;
+	} else {
+		var operator = node.operator.substr(0, node.operator.length - 1);
+		action = "SET " + left + " = " + left + " " + operator + " " + right;
+	}
+
 	return {
 		type: "statement",
 		action: action,
 		loc: node.loc
 	};
-}
+};
 nodeParsers["WhileStatement"] = function(node) {
 	var test = nodeParsers[node.test.type](node.test);
 	var body = nodeParsers[node.body.type](node.body);
@@ -138,8 +173,8 @@ nodeParsers["WhileStatement"] = function(node) {
 		test: test,
 		body: body,
 		loc: node.loc
-	}
-}
+	};
+};
 nodeParsers["UpdateExpression"] = function(node) {
 	var obj = nodeParsers[node.argument.type](node.argument);
 	var action = "SET " + obj + " = ";
@@ -153,43 +188,63 @@ nodeParsers["UpdateExpression"] = function(node) {
 		action: action,
 		loc: node.loc
 	};
-}
+};
 nodeParsers["IfStatement"] = function(node) {
 	// need to check the contents of the if statement to see
 	// if anything needs to be evaluated prior to the test
 	var result = [];
-	var yes, no;
+	var yes, no, action;
+
+	// what happens for a true result
 	yes = nodeParsers[node.consequent.type](node.consequent);
 	if(node.consequent.type !== "BlockStatement") {
 		yes = [yes];
 	}
 
+	// what happens for a false result
 	if(node.alternate) {
 		no = nodeParsers[node.alternate.type](node.alternate);
-	}
-	if(node.test.type === "Identifier") {
-		var val = {
-			type: "question",
-			action: "IF " + nodeParsers[node.test.type](node.test) + " IS TRUE",
-			yes: yes,
-			loc: node.loc
-		};
-		if(no) {
-			val.no = no;
+		if(node.alternate.type !== "BlockStatement") {
+			no = [no];
 		}
-		result.push(val);
 	}
+
+	// find the action
+	if(node.test.type === "Identifier" || node.test.type === 'Literal') {
+		action = "IF " + nodeParsers[node.test.type](node.test) + " IS TRUE";
+	} else if(node.test.type === 'BinaryExpression' || node.test.type === 'UnaryExpression') {
+		action = "IF " + nodeParsers[node.test.type](node.test);
+	} else {
+		throw new Error("Could not find action for question: " + JSON.stringify(node));
+	}
+	var val = {
+		type: "question",
+		action: action,
+		yes: yes,
+		loc: node.loc
+	};
+	if(no) {
+		val.no = no;
+	}
+	result.push(val);
 	return result;
-}
+};
+nodeParsers["LogicalExpression"] = function(node) {
+	var action = 'VALUE OF ' + nodeParsers[node.left.type](node.left) + ' ' + node.operator + ' ' + nodeParsers[node.right.type](node.right);
+	return action;
+	console.log('LogicalExpression not implemented');
+	console.log(JSON.stringify(node));
+};
 // will return an error or an array of converted items
 function parse(str) {
 	try{
 		var obj = esprima.parse(str, { loc: true });
-		console.log("%j", obj);
 		return nodeParsers[obj.type](obj);
 	} catch(e) {
+		console.error(e);
 		return e;
 	}
 }
 
 module.exports = parse;
+module.exports.getParsers = function() { return nodeParsers; };

@@ -12,11 +12,15 @@
   "scripts": {
     "postinstall": "browserify src/index.js -o js/main.js"
   },
-  "dependencies": {},
-  "devDependencies": {
+  "dependencies": {
+    "grunt": "0.4.x",
+    "grunt-contrib-watch": "*",
+    "grunt-contrib-connect": "*",
+    "grunt-contrib-jasmine": "*",
     "esprima": "*",
     "browserify": "*",
-    "jquery-browserify": "*"
+    "jquery-browserify": "*",
+    "grunt-contrib-clean": "~0.5.0"
   },
   "optionalDependencies": {},
   "engines": {

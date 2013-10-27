@@ -68,7 +68,12 @@ table{
 \*------------------------------------*/
 /* GO! */
 
-a.step {
-  display:block;
+.step {
+  display: block;
   clear: right;
+  text-decoration: none;
 }
+.block, .subroutine, .question-block {
+  padding-left: 1em;
+}
+

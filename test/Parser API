@@ -1,0 +1,1169 @@
+Parser API
+
+by Sheppy and Dherman, developer.mozilla.org
+Recent builds of the standalone SpiderMonkey shell include a reflection of the SpiderMonkey parser, made available as a JavaScript API. This makes it easier to write tools in JavaScript that manipulate JavaScript source programs, such as syntax highlighters, static analyses, translators, compilers, obfuscators, etc.
+
+Example:
+
+> var expr = Reflect.parse("obj.foo + 42").body[0].expression
+> expr.left.property
+({loc:null, type:"Identifier", name:"foo"})
+> expr.right
+({loc:{source:null, start:{line:1, column:10}, end:{line:1, column:12}}, type:"Literal", value:42})
+It is also available since Firefox 7; it can be imported into the global object via:
+
+Components.utils.import("resource://gre/modules/reflect.jsm")
+or into a specified object via:
+
+Components.utils.import("resource://gre/modules/reflect.jsm", obj)
+Built-in objects
+
+Whether in SpiderMonkey shell or Firefox (after importing), the global singleton object Reflect currently contains just the parse method.
+
+Properties of the Reflect object
+
+The Reflect object currently consists of a single method.
+
+Reflect.parse(src[, options])
+Coerces src to a string and parses the result as a JavaScript program. By default, the parsing returns a Program object (see below) representing the parsed abstract syntax tree (AST).
+
+Additional options may be provided via the options object, which can include any of the following properties:
+
+loc
+Boolean
+Default: true
+When loc is true, the parser includes source location information in the returned AST nodes.
+source
+String
+Default: null
+A description of the input source; typically a filename, path, or URL. This string is not meaningful to the parsing process, but is produced as part of the source location information in the returned AST nodes.
+line
+Number
+Default: 1
+The initial line number to use for source location information.
+builder
+Builder
+Default: null
+A builder object, which can be used to produce AST nodes in custom data formats. The expected callback methods are described under Builder Objects.
+
+If parsing fails due to a syntax error, an instance of SyntaxError is thrown. The syntax error object thrown by Reflect.parse() has the same message property as the syntax error that would be thrown by eval(src). The lineNumber and fileName properties of the syntax error object indicate the source location of the syntax error.
+
+Node objects
+
+By default, Reflect.parse() produces Node objects, which are plain JavaScript objects (i.e., their prototype derives from the standard Object prototype). All node types implement the following interface:
+
+interface Node {
+    type: string;
+    loc: SourceLocation | null;
+}
+The type field is a string representing the AST variant type. Each subtype of Node is documented below with the specific string of its type field. You can use this field to determine which interface a node implements.
+
+The loc field represents the source location information of the node. If the parser produced no information about the node's source location, the field is null; otherwise it is an object consisting of a start position (the position of the first character of the parsed source region) and an end position (the position of the first character after the parsed source region):
+
+interface SourceLocation {
+    source: string | null;
+    start: Position;
+    end: Position;
+}
+Each Position object consists of a line number (1-indexed) and a column number (0-indexed):
+
+interface Position {
+    line: uint32 >= 1;
+    column: uint32 >= 0;
+}
+Programs
+interface Program <: Node {
+    type: "Program";
+    body: [ Statement ];
+}
+A complete program source tree.
+
+Functions
+interface Function <: Node {
+    id: Identifier | null;
+    params: [ Pattern ];
+    defaults: [ Expression ];
+    rest: Identifier | null;
+    body: BlockStatement | Expression;
+    generator: boolean;
+    expression: boolean;
+}
+A function declaration or expression. The body of the function may be a block statement, or in the case of an expression closure, an expression.
+
+If the generator flag is true, the function is a generator function, i.e., contains a yield expression in its body (other than in a nested function).
+
+If the expression flag is true, the function is an expression closure and the body field is an expression.
+
+Statements
+interface Statement <: Node { }
+Any statement.
+
+interface EmptyStatement <: Statement {
+    type: "EmptyStatement";
+}
+An empty statement, i.e., a solitary semicolon.
+
+interface BlockStatement <: Statement {
+    type: "BlockStatement";
+    body: [ Statement ];
+}
+A block statement, i.e., a sequence of statements surrounded by braces.
+
+interface ExpressionStatement <: Statement {
+    type: "ExpressionStatement";
+    expression: Expression;
+}
+An expression statement, i.e., a statement consisting of a single expression.
+
+interface IfStatement <: Statement {
+    type: "IfStatement";
+    test: Expression;
+    consequent: Statement;
+    alternate: Statement | null;
+}
+An if statement.
+
+interface LabeledStatement <: Statement {
+    type: "LabeledStatement";
+    label: Identifier;
+    body: Statement;
+}
+A labeled statement, i.e., a statement prefixed by a break/continue label.
+
+interface BreakStatement <: Statement {
+    type: "BreakStatement";
+    label: Identifier | null;
+}
+A break statement.
+
+interface ContinueStatement <: Statement {
+    type: "ContinueStatement";
+    label: Identifier | null;
+}
+A continue statement.
+
+interface WithStatement <: Statement {
+    type: "WithStatement";
+    object: Expression;
+    body: Statement;
+}
+A with statement.
+
+interface SwitchStatement <: Statement {
+    type: "SwitchStatement";
+    discriminant: Expression;
+    cases: [ SwitchCase ];
+    lexical: boolean;
+}
+A switch statement. The lexical flag is metadata indicating whether the switch statement contains any unnested let declarations (and therefore introduces a new lexical scope).
+
+interface ReturnStatement <: Statement {
+    type: "ReturnStatement";
+    argument: Expression | null;
+}
+A return statement.
+
+interface ThrowStatement <: Statement {
+    type: "ThrowStatement";
+    argument: Expression;
+}
+A throw statement.
+
+interface TryStatement <: Statement {
+    type: "TryStatement";
+    block: BlockStatement;
+    handlers: [ CatchClause ];
+    finalizer: BlockStatement | null;
+}
+A try statement.
+
+interface WhileStatement <: Statement {
+    type: "WhileStatement";
+    test: Expression;
+    body: Statement;
+}
+A while statement.
+
+interface DoWhileStatement <: Statement {
+    type: "DoWhileStatement";
+    body: Statement;
+    test: Expression;
+}
+A do/while statement.
+
+interface ForStatement <: Statement {
+    type: "ForStatement";
+    init: VariableDeclaration | Expression | null;
+    test: Expression | null;
+    update: Expression | null;
+    body: Statement;
+}
+A for statement.
+
+interface ForInStatement <: Statement {
+    type: "ForInStatement";
+    left: VariableDeclaration |  Expression;
+    right: Expression;
+    body: Statement;
+    each: boolean;
+}
+A for/in statement, or, if each is true, a for each/in statement.
+
+interface LetStatement <: Statement {
+    type: "LetStatement";
+    head: [ { id: Pattern, init: Expression | null } ];
+    body: Statement;
+}
+A let statement.
+
+interface DebuggerStatement <: Statement {
+    type: "DebuggerStatement";
+}
+A debugger statement.
+
+Declarations
+interface Declaration <: Statement { }
+Any declaration node. Note that declarations are considered statements; this is because declarations can appear in any statement context in the language recognized by the SpiderMonkey parser.
+
+interface FunctionDeclaration <: Function, Declaration {
+    type: "FunctionDeclaration";
+    id: Identifier;
+    params: [ Pattern ];
+    defaults: [ Expression ];
+    rest: Identifier | null;
+    body: BlockStatement | Expression;
+    generator: boolean;
+    expression: boolean;
+}
+A function declaration.
+
+interface VariableDeclaration <: Declaration {
+    type: "VariableDeclaration";
+    declarations: [ VariableDeclarator ];
+    kind: "var" | "let" | "const";
+}
+A variable declaration, via one of var, let, or const.
+
+interface VariableDeclarator <: Node {
+    type: "VariableDeclarator";
+    id: Pattern;
+    init: Expression | null;
+}
+A variable declarator.
+
+Expressions
+interface Expression <: Node, Pattern { }
+Any expression node. Since the left-hand side of an assignment may be any expression in general, an expression can also be a pattern.
+
+interface ThisExpression <: Expression {
+    type: "ThisExpression";
+}
+A this expression.
+
+interface ArrayExpression <: Expression {
+    type: "ArrayExpression";
+    elements: [ Expression | null ];
+}
+An array expression.
+
+interface ObjectExpression <: Expression {
+    type: "ObjectExpression";
+    properties: [ { key: Literal | Identifier,
+                    value: Expression,
+                    kind: "init" | "get" | "set" } ];
+}
+An object expression. A literal property in an object expression can have either a string or number as its value. Ordinary property initializers have a kind value "init"; getters and setters have the kind values "get" and "set", respectively.
+
+interface FunctionExpression <: Function, Expression {
+    type: "FunctionExpression";
+    id: Identifier | null;
+    params: [ Pattern ];
+    defaults: [ Expression ];
+    rest: Identifier | null;
+    body: BlockStatement | Expression;
+    generator: boolean;
+    expression: boolean;
+}
+A function expression.
+
+interface SequenceExpression <: Expression {
+    type: "SequenceExpression";
+    expressions: [ Expression ];
+}
+A sequence expression, i.e., a comma-separated sequence of expressions.
+
+interface UnaryExpression <: Expression {
+    type: "UnaryExpression";
+    operator: UnaryOperator;
+    prefix: boolean;
+    argument: Expression;
+}
+A unary operator expression.
+
+interface BinaryExpression <: Expression {
+    type: "BinaryExpression";
+    operator: BinaryOperator;
+    left: Expression;
+    right: Expression;
+}
+A binary operator expression.
+
+interface AssignmentExpression <: Expression {
+    type: "AssignmentExpression";
+    operator: AssignmentOperator;
+    left: Expression;
+    right: Expression;
+}
+An assignment operator expression.
+
+interface UpdateExpression <: Expression {
+    type: "UpdateExpression";
+    operator: UpdateOperator;
+    argument: Expression;
+    prefix: boolean;
+}
+An update (increment or decrement) operator expression.
+
+interface LogicalExpression <: Expression {
+    type: "LogicalExpression";
+    operator: LogicalOperator;
+    left: Expression;
+    right: Expression;
+}
+A logical operator expression.
+
+interface ConditionalExpression <: Expression {
+    type: "ConditionalExpression";
+    test: Expression;
+    alternate: Expression;
+    consequent: Expression;
+}
+A conditional expression, i.e., a ternary ?/: expression.
+
+interface NewExpression <: Expression {
+    type: "NewExpression";
+    callee: Expression;
+    arguments: [ Expression ] | null;
+}
+A new expression.
+
+interface CallExpression <: Expression {
+    type: "CallExpression";
+    callee: Expression;
+    arguments: [ Expression ];
+}
+A function or method call expression.
+
+interface MemberExpression <: Expression {
+    type: "MemberExpression";
+    object: Expression;
+    property: Identifier | Expression;
+    computed : boolean;
+}
+A member expression. If computed === true, the node corresponds to a computed e1[e2] expression and property is an Expression. If computed === false, the node corresponds to a static e1.x expression and property is an Identifier.
+
+interface YieldExpression <: Expression {
+    argument: Expression | null;
+}
+A yield expression.
+
+interface ComprehensionExpression <: Expression {
+    body: Expression;
+    blocks: [ ComprehensionBlock ];
+    filter: Expression | null;
+}
+An array comprehension. The blocks array corresponds to the sequence of for and for each blocks. The optional filter expression corresponds to the final if clause, if present.
+
+interface GeneratorExpression <: Expression {
+    body: Expression;
+    blocks: [ ComprehensionBlock ];
+    filter: Expression | null;
+}
+A generator expression. As with array comprehensions, the blocks array corresponds to the sequence of for and for each blocks, and the optional filter expression corresponds to the final if clause, if present.
+
+interface GraphExpression <: Expression {
+    index: uint32;
+    expression: Literal;
+}
+A graph expression, aka "sharp literal," such as #1={ self: #1# }.
+
+interface GraphIndexExpression <: Expression {
+    index: uint32;
+}
+A graph index expression, aka "sharp variable," such as #1#.
+
+interface LetExpression <: Expression {
+    type: "LetExpression";
+    head: [ { id: Pattern, init: Expression | null } ];
+    body: Expression;
+}
+A let expression.
+
+Patterns
+interface Pattern <: Node { }
+JavaScript 1.7 introduced destructuring assignment and binding forms. All binding forms (such as function parameters, variable declarations, and catch block headers), accept array and object destructuring patterns in addition to plain identifiers. The left-hand sides of assignment expressions can be arbitrary expressions, but in the case where the expression is an object or array literal, it is interpreted by SpiderMonkey as a destructuring pattern.
+
+Since the left-hand side of an assignment can in general be any expression, in an assignment context, a pattern can be any expression. In binding positions (such as function parameters, variable declarations, and catch headers), patterns can only be identifiers in the base case, not arbitrary expressions.
+
+interface ObjectPattern <: Pattern {
+    type: "ObjectPattern";
+    properties: [ { key: Literal | Identifier, value: Pattern } ];
+}
+An object-destructuring pattern. A literal property in an object pattern can have either a string or number as its value.
+
+interface ArrayPattern <: Pattern {
+    type: "ArrayPattern";
+    elements: [ Pattern | null ];
+}
+An array-destructuring pattern.
+
+Clauses
+interface SwitchCase <: Node {
+    type: "SwitchCase";
+    test: Expression | null;
+    consequent: [ Statement ];
+}
+A case (if test is an Expression) or default (if test === null) clause in the body of a switch statement.
+
+interface CatchClause <: Node {
+    type: "CatchClause";
+    param: Pattern;
+    guard: Expression | null;
+    body: BlockStatement;
+}
+A catch clause following a try block. The optional guard property corresponds to the optional expression guard on the bound variable.
+
+interface ComprehensionBlock <: Node {
+    left: Pattern;
+    right: Expression;
+    each: boolean;
+}
+A for or for each block in an array comprehension or generator expression.
+
+Miscellaneous
+interface Identifier <: Node, Expression, Pattern {
+    type: "Identifier";
+    name: string;
+}
+An identifier. Note that an identifier may be an expression or a destructuring pattern.
+
+interface Literal <: Node, Expression {
+    type: "Literal";
+    value: string | boolean | null | number | RegExp;
+}
+A literal token. Note that a literal can be an expression.
+
+enum UnaryOperator {
+    "-" | "+" | "!" | "~" | "typeof" | "void" | "delete"
+}
+A unary operator token.
+
+enum BinaryOperator {
+    "==" | "!=" | "===" | "!=="
+         | "<" | "<=" | ">" | ">="
+         | "<<" | ">>" | ">>>"
+         | "+" | "-" | "*" | "/" | "%"
+         | "|" | "^" | "^"
+         | "in" | "instanceof"
+         | ".."
+}
+A binary operator token.
+
+enum LogicalOperator {
+    "||" | "&&"
+}
+A logical operator token.
+
+enum AssignmentOperator {
+    "=" | "+=" | "-=" | "*=" | "/=" | "%="
+        | "<<=" | ">>=" | ">>>="
+        | "|=" | "^=" | "&="
+}
+An assignment operator token.
+
+enum UpdateOperator {
+    "++" | "--"
+}
+An update (increment or decrement) operator token.
+
+E4X
+This section describes node types that are provided for E4X support.
+
+Declarations
+interface XMLDefaultDeclaration <: Declaration {
+    type: "XMLDefaultDeclaration";
+    namespace: Expression;
+}
+A default xml namespace declaration.
+
+Expressions
+interface XMLAnyName <: Expression {
+    type: "XMLAnyName";
+}
+The special E4X wildcard pseudo-identifier *.
+
+interface XMLQualifiedIdentifier <: Expression {
+    type: "XMLQualifiedIdentifier";
+    left: Identifier | XMLAnyName;
+    right: Identifier | Expression;
+    computed: boolean;
+}
+An E4X qualified identifier, i.e., a pseudo-identifier using the namespace separator ::. If the qualified identifier has a computed name (i.e., the id::[expr] form), then computed is true and the right property is an expression.
+
+interface XMLFunctionQualifiedIdentifier <: Expression {
+    type: "XMLFunctionQualifiedIdentifier";
+    right: Identifier | Expression;
+    computed: boolean;
+}
+An E4X identifier qualified by the function keyword, e.g. function::id.
+
+interface XMLAttributeSelector <: Expression {
+    type: "XMLAttributeSelector";
+    attribute: Expression;
+}
+An E4X attribute selector expression, i.e., an @ expression.
+
+interface XMLFilterExpression <: Expression {
+    type: "XMLFilterExpression";
+    left: Expression;
+    right: Expression;
+}
+An E4X list filter expression, i.e., an expression of the form expr.(expr).
+
+interface XMLElement <: XML, Expression {
+    type: "XMLElement";
+    contents: [ XML ];
+}
+An E4X literal representing a single XML element.
+
+interface XMLList <: XML, Expression {
+    type: "XMLList";
+    contents: [ XML ];
+}
+An E4X literal representing a list of XML elements.
+
+XML
+interface XML <: Node { }
+XML data.
+
+interface XMLEscape <: XML {
+    type "XMLEscape";
+    expression: Expression;
+}
+XML data with an escaped JavaScript expression.
+
+interface XMLText <: XML {
+    type: "XMLText";
+    text: string;
+}
+Literal XML text.
+
+interface XMLStartTag <: XML {
+    type: "XMLStartTag";
+    contents: [ XML ];
+}
+An XML start tag.
+
+interface XMLEndTag <: XML {
+    type: "XMLEndTag";
+    contents: [ XML ];
+}
+An XML end tag.
+
+interface XMLPointTag <: XML {
+    type: "XMLPointTag";
+    contents: [ XML ];
+}
+An XML point tag.
+
+interface XMLName <: XML {
+    type: "XMLName";
+    contents: string | [ XML ];
+}
+An XML name.
+
+interface XMLAttribute <: XML {
+    type: "XMLAttribute";
+    value: string;
+}
+An XML attribute value.
+
+interface XMLCdata <: XML {
+    type: "XMLCdata";
+    contents: string;
+}
+An XML CDATA node.
+
+interface XMLComment <: XML {
+    type: "XMLComment";
+    contents: string;
+}
+An XML comment.
+
+interface XMLProcessingInstruction <: XML {
+    type: "XMLProcessingInstruction";
+    target: string;
+    contents: string | null;
+}
+An XML processing instruction.
+
+Builder objects
+
+The optional builder parameter to Reflect.parse() makes it possible to construct user-specified data from the parser, rather than the default Node objects. Builder objects may contain any of the callback methods described in this section.
+
+Each callback can produce any custom, user-defined datatype; these are referred to below as CustomExpression, CustomStatement, etc.
+
+If the loc option is enabled (see the Reflect.parse() options above), then each callback is provided with the source location information of the parsed node as an extra parameter.
+
+All builder callbacks are optional. When a callback is missing, the default format is used, but the provided builder methods are still used recursively for sub-nodes.
+
+Programs
+program(body[, loc])
+body: [ CustomStatement ]
+loc: SourceLocation
+Returns: CustomProgram
+
+Callback to produce a custom program node.
+
+Statements
+emptyStatement([loc])
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom empty statement node.
+
+blockStatement(body[, loc])
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom block statement node.
+
+expressionStatement(expr[, loc])
+expr: CustomExpression
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom expression statement node.
+
+labeledStatement(label, body[, loc])
+label: CustomIdentifier
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom labeled statement node.
+
+ifStatement(test, cons, alt[, loc])
+test: CustomExpression
+cons: CustomStatement
+alt: CustomStatement | null
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom if statement node.
+
+switchStatement(disc, cases, isLexical[, loc])
+disc: CustomExpression
+cases: [ CustomSwitchCase ]
+isLexical: boolean
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom switch statement node. The isLexical flag is metadata indicating whether the switch statement contains any unnested let declarations (and therefore introduces a new lexical scope).
+
+whileStatement(test, body[, loc])
+test: CustomExpression
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom while statement node.
+
+doWhileStatement(body, test[, loc])
+body: CustomStatement
+test: CustomExpression
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom do-while statement node.
+
+forStatement(init, test, update, body[, loc])
+init: CustomVariableDeclaration | CustomExpression | null
+test: CustomExpression | null
+update: CustomExpression | null
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom for statement node.
+
+forInStatement(left, right, body, isForEach[, loc])
+left: CustomVariableDeclaration | CustomExpression
+right: CustomExpression
+body: CustomStatement
+isForEach: boolean
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom for-in statement node. The isForEach flag indicates whether the node is a for each statement.
+
+breakStatement(label[, loc])
+label: CustomIdentifier | null
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom break statement node.
+
+continueStatement(label[, loc])
+label: CustomIdentifier | null
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom continue statement node.
+
+withStatement(obj, body[, loc])
+obj: CustomExpression
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom with statement node.
+
+returnStatement(arg[, loc])
+arg: CustomExpression | null
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom return statement node.
+
+tryStatement(body, handlers, fin[, loc])
+body: CustomStatement
+handlers: [ CustomCatchClause ]
+fin: CustomStatement | null
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom try statement node.
+
+throwStatement(arg[, loc])
+arg: CustomExpression
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom throw statement node.
+
+debuggerStatement([loc])
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom debugger statement node.
+
+letStatement(head, body[, loc])
+head: [ CustomDeclarator ]
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomStatement
+
+Callback to produce a custom let statement node.
+
+Declarations
+functionDeclaration(name, args, body, isGenerator, isExpression[, loc])
+name: string
+args: [ CustomPattern ]
+body: CustomStatement | CustomExpression
+isGenerator: boolean
+isExpression: boolean
+loc: SourceLocation
+Returns: CustomDeclaration
+
+Callback to produce a custom function declaration node.
+
+variableDeclaration(kind, dtors[, loc])
+kind: "const" | "let" | "var"
+dtors: [ CustomDeclarator ]
+loc: SourceLocation
+Returns: CustomDeclaration
+
+Callback to produce a custom variable declaration node.
+
+variableDeclarator(patt, init[, loc])
+patt: CustomPattern
+init: CustomExpression | null
+loc: SourceLocation
+Returns: CustomDeclarator
+
+Callback to produce a custom variable declarator node.
+
+Expressions
+sequenceExpression(exprs[, loc])
+exprs: [ CustomExpression ]
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom sequence expression node.
+
+conditionalExpression(test, cons, alt[, loc])
+test: CustomExpression
+cons: CustomExpression
+alt: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom conditional expression node.
+
+unaryExpression(op, arg, isPrefix[, loc])
+op: UnaryOperator
+arg: CustomExpression
+isPrefix: boolean
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom unary expression node.
+
+binaryExpression(op, left, right[, loc])
+op: BinaryOperator
+left: CustomExpression
+right: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom binary expression node.
+
+assignmentExpression(op, left, right[, loc])
+op: AssignmentOperator
+left: CustomExpression
+right: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom assignment expression node.
+
+logicalExpression(op, left, right[, loc])
+op: LogicalOperator
+left: CustomExpression
+right: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom logical expression node.
+
+updateExpression(op, arg, isPrefix[, loc])
+op: UpdateOperator
+arg: CustomExpression
+isPrefix: boolean
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom update expression node.
+
+newExpression(callee, args[, loc])
+callee: CustomExpression
+args: [ CustomExpression ]
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom new-expression node.
+
+callExpression(callee, args[, loc])
+callee: CustomExpression
+args: [ CustomExpression ]
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom function call node.
+
+memberExpression(obj, prop, isComputed[, loc])
+obj: CustomExpression
+prop: CustomIdentifier | CustomExpression
+isComputed: boolean
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom member expression node.
+
+functionExpression(name, args, body, isGenerator, isExpression[, loc])
+name: CustomIdentifier | null
+args: [ CustomPattern ]
+body: CustomStatement | CustomExpression
+isGenerator: boolean
+isExpression: boolean
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom function expression node.
+
+arrayExpression(elts[, loc])
+elts: [ CustomExpression | null ]
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom array expression node.
+
+objectExpression(props[, loc])
+props: [ CustomObjectProperty ]
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom object expression node.
+
+thisExpression([loc])
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom this expression node.
+
+graphExpression(index, expr[, loc])
+index: uint32 >= 1
+expr: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom graph expression node.
+
+graphIndexExpression(index[, loc])
+index: uint32 >= 1
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom graph index expression node.
+
+comprehensionExpression(body, blocks, filter[, loc])
+body: CustomExpression
+blocks: [ CustomComprehensionBlock ]
+filter: CustomExpression | null
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom comprehension expression node.
+
+generatorExpression(body, blocks, filter[, loc])
+body: CustomExpression
+blocks: [ CustomComprehensionBlock ]
+filter: CustomExpression | null
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom generator expression node.
+
+yieldExpression(arg[, loc])
+arg: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom yield expression node.
+
+letExpression(head, body[, loc])
+head: [ CustomDeclarator ]
+body: CustomExpression
+loc: SourceLocation
+Returns: CustomExpression
+
+Callback to produce a custom let expression node.
+
+Patterns
+arrayPattern(elts[, loc])
+elts: [ CustomPattern | null ]
+loc: SourceLocation
+Returns: CustomPattern
+
+Callback to produce a custom array destructuring pattern node.
+
+objectPattern(props[, loc])
+props: [ CustomPropertyPattern ]
+loc: SourceLocation
+Returns: CustomPattern
+
+Callback to produce a custom object destructuring pattern node.
+
+propertyPattern(key, patt[, loc])
+key: CustomLiteral | CustomIdentifier
+patt: CustomPattern
+loc: SourceLocation
+Returns: CustomPropertyPattern
+
+Callback to produce a custom object property destructuring pattern node.
+
+Clauses
+switchCase(test, cons[, loc])
+test: CustomExpression | null
+cons: [ CustomStatement ]
+loc: SourceLocation
+Returns: CustomSwitchCase
+
+Callback to produce a custom case or default clause node. The test argument is null if and only if the node is a default clause.
+
+catchClause(arg, guard, body[, loc])
+arg: CustomPattern
+guard: CustomExpression
+body: CustomStatement
+loc: SourceLocation
+Returns: CustomCatchClause
+
+Callback to produce a custom catch clause node.
+
+comprehensionBlock(left, right, isForEach[, loc])
+left: CustomPattern
+right: CustomExpression
+isForEach: boolean
+loc: SourceLocation
+Returns: CustomComprehensionBlock
+
+Callback to produce a custom comprehension block node. The isForEach flag indicates whether the node is a for each block.
+
+Miscellaneous
+identifier(name[, loc])
+name: string
+loc: SourceLocation
+Returns: CustomIdentifier/CustomPattern/CustomExpression
+
+Callback to produce a custom identifier node.
+
+literal(val[, loc])
+val: string | boolean | null | number | RegExp
+loc: SourceLocation
+Returns: CustomLiteral / CustomExpression
+
+Callback to produce a custom literal node.
+
+property(kind, key, val[, loc])
+kind: "init" | "get" | "set"
+key: CustomLiteral | CustomIdentifier
+val: CustomExpression
+loc: SourceLocation
+Returns: CustomObjectProperty
+
+Callback to produce a custom object property initializer node.
+
+E4X
+Declarations
+xmlDefaultDeclaration(ns[, loc])
+loc: SourceLocation
+Returns: CustomDeclaration
+
+Callback to produce a custom XML default namespace declaration node.
+
+Expressions
+xmlAnyName([loc])
+loc: SourceLocation
+Returns: CustomXMLAnyName/CustomXML/CustomExpression
+
+Callback to produce a custom XML node for the wildcard pseudo-identifier *.
+
+xmlAttributeSelector(expr[, loc])
+expr: CustomExpression
+loc: SourceLocation
+Returns: CustomXML/CustomExpression
+
+Callback to produce a custom XML attribute selector node.
+
+xmlFilterExpression(left, right[, loc])
+left: CustomExpression
+right: CustomExpression
+loc: SourceLocation
+Returns: CustomXML/CustomExpression
+
+Callback to produce a custom XML filter expression node.
+
+xmlQualifiedIdentifier(left, right, isComputed[, loc])
+left: CustomIdentifier | CustomXMLAnyName
+right: CustomIdentifier | CustomExpression
+isComputed: boolean
+loc: SourceLocation
+Returns: CustomXML/CustomExpression
+
+Callback to produce a custom qualified identifier node.
+
+xmlFunctionQualifiedIdentifier(right, isComputed[, loc])
+right: CustomIdentifier | CustomExpression
+isComputed: boolean
+loc: SourceLocation
+Returns: CustomXML/CustomExpression
+
+Callback to produce a custom XML function-qualified identifier node.
+
+xmlElement(contents[, loc])
+contents: [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML / CustomExpression
+
+Callback to produce a custom XML element node.
+
+xmlList(contents[, loc])
+contents: [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML/CustomExpression
+
+Callback to produce a custom XML list node.
+
+XML
+xmlEscape(expr[, loc])
+expr: CustomExpression
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML escape node.
+
+xmlText(text[, loc])
+text: string
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML text node.
+
+xmlStartTag(contents[, loc])
+contents: [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML start-tag node.
+
+xmlEndTag(contents[, loc])
+contents: [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML end-tag node.
+
+xmlPointTag(contents[, loc])
+contents: [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML point tag node.
+
+xmlName(contents[, loc])
+contents: string | [ CustomXML ]
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML name node.
+
+xmlAttribute(value[, loc])
+value: string
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML attribute node.
+
+xmlCdata(contents[, loc])
+contents: string
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML CDATA node.
+
+xmlComment(contents[, loc])
+contents: string
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML comment node.
+
+xmlProcessingInstruction(target, contents[, loc])
+target: string
+contents: string | null
+loc: SourceLocation
+Returns: CustomXML
+
+Callback to produce a custom XML processing instruction node.
