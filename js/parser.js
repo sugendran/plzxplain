@@ -80,6 +80,15 @@
 		var valtype = typeof(val);
 		return (valtype === 'string' || valtype === 'number');
 	}
+	function flattenedValue(val) {
+		if(isStringOrNum(val)) {
+			return val;
+		} else if(!val.text) {
+			return '(' + val.symbols[0].text + ')';
+		} else {
+			return '(' + val.text + ')';
+		}
+	}
 	function parseNode(node, asCondition) {
 		if(!nodeParsers[node.type]) {
 			console.log(node);
@@ -96,6 +105,9 @@
 				pushSequence(sequenceArr, currentStep[i], val);
 			}
 			return;
+		}
+		if(val.constructor === Array) {
+			val = val[0];
 		}
 		if(currentStep.type === 'condition') {
 			if(currentStep.yes) {
@@ -216,8 +228,14 @@
 	nodeParsers.Literal = function(node) {
 		if(typeof node.value === 'boolean') {
 			return node.value ? 'TRUE' : 'FALSE';
+		} else if(node.value === null) {
+			return 'NULL';
 		} else if(isFinite(node.value)) {
-			return parseFloat(node.value);
+			var val = parseFloat(node.value);
+			if(isNaN(val)) {
+				return node.value;
+			}
+			return val;
 		}
 		return "'" + node.value + "'";
 	};
@@ -263,11 +281,11 @@
 		};
 	};
 	nodeParsers.ArrayExpression = function(node) {
-		var result = 'ARRAY CONTAINING ';
+		var result;
 		if(node.elements.length === 0) {
-			result += 'NOTHING';
+			result = 'EMPTY ARRAY';
 		} else {
-			result += '\\\n';
+			result += 'ARRAY CONTAINING \\\n';
 			var items = [];
 			for(var i=0, ii=node.elements.length; i<ii; i++) {
 				var val = parseNode(node.elements[i]);
@@ -326,7 +344,7 @@
 			var argList = [];
 			for(var i=0, ii=args.length; i<ii; i++) {
 				var arg = args[i];
-				argList.push(parseNode(arg));
+				argList.push(flattenedValue(parseNode(arg)));
 			}
 			action += argList.join(", ");
 		}
@@ -359,22 +377,9 @@
 	nodeParsers.BinaryExpression = function(node, asCondition) {
 		var result = blankResult();
 		var left, right, operator, symbol;
-		function parseValue(n) {
-			var returnable;
-			var val = parseNode(n);
-			if(isStringOrNum(val)) {
-				returnable = parseNode(n);
-			} else {
-				result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, val);
-				returnable = parseNode(n);
-			}
-			return returnable;
-		}
-		// todo: need to parse out statements from left and right
-		// then work out left and right values for the comparison
-		left = parseValue(node.left);
-		right = parseValue(node.right);
-		result.firstStep = result.symbols[0];
+
+		left = flattenedValue(parseNode(node.left));
+		right = flattenedValue(parseNode(node.right));
 
 		operator = binaryoperators[node.operator] || node.operator;
 		var action = left + " " + operator + " " + right;
@@ -383,6 +388,7 @@
 		if(result.lastStep) {
 			result.sequences.push([result.lastStep.id, symbol.id]);
 		}
+		result.firstStep = result.symbols[0];
 		result.lastStep = symbol;
 
 		return result;
@@ -419,7 +425,7 @@
 	nodeParsers.AssignmentExpression = function(node) {
 		var action;
 		var left = parseNode(node.left);
-		var right = parseNode(node.right);
+		var right = flattenedValue(parseNode(node.right));
 		if(node.operator === '=') {
 			action = "SET " + left + " = " + right;
 		} else {
@@ -451,7 +457,7 @@
 		result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, test);
 		var bodyValue = parseNode(node.body);
 		result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, bodyValue);
-		result.sequences.push([result.lastStep.id, test.lastStep.id]);
+		pushSequence(result.sequences, result.lastStep, test.lastStep);
 		result.lastStep = test.lastStep;
 		return result;
 	};
@@ -501,7 +507,8 @@
 	};
 	nodeParsers.ReturnStatement = function(node) {
 		if(node.argument) {
-			return 'RETURN ' + parseNode(node.argument);
+			var val = parseNode(node.argument);
+			return 'RETURN ' + flattenedValue(val);
 		}
 		return 'RETURN';
 	};

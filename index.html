@@ -23,11 +23,24 @@
 	<div id="content">
 		<div id="code-box" class="content-item">
 			<textarea id="code">
-function foo() {
-	console.log('foo');
+// print the first 10 numbers in
+// the fibonaci sequence
+var count = 0;
+var prev = 0;
+var curr = 1;
+
+function fib() {
+	var next = prev + curr;
+	console.log(next);
+	prev = curr;
+	curr = next;
 }
-for(var i=0; i&lt;10; i++) {
-	foo();
+
+console.log(prev);
+console.log(curr)
+
+while(++count &lt; 8) {
+	fib();
 }
 			</textarea>
 		</div>

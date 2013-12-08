@@ -95,6 +95,7 @@ body {
 
 }
 .quickjump {
+  display: none;
   background: #FFF;
   position: absolute;
   top: 0;

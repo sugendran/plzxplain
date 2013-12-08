@@ -15,7 +15,13 @@
     'fill': '#FFF',
     'yes-text': 'yes',
     'no-text': 'no',
-    'arrow-end': 'block'
+    'arrow-end': 'block',
+    'symbols': {
+      'condition': {
+        'text-margin': 0,
+        'maxWidth': 180
+      }
+    }
   };
   var codeMirrorOpts = {
     lineNumbers: true,
@@ -75,7 +81,13 @@
     $('<a href="#' + divID + '">' + routine.name + '</a>').appendTo(tabsContainer);
   }
 
+  var debounceTimer = null;
   function onEditorUpdated() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(_onEditorUpdated, 100);
+  }
+
+  function _onEditorUpdated() {
     if(codeMirrorObj) {
       plzxplain.parse.resetCounters();
       var program = plzxplain.parse(codeMirrorObj.getValue());
