@@ -4,7 +4,7 @@
 	<meta charset="utf-8" />
 	<title>PlzXplain: Javascript Visualiser</title>
 	<link rel="stylesheet" type="text/css" href="css/style.css" />
-	<link rel="stylesheet" type="text/css" href="css/codemirror.css">
+	<link rel="stylesheet" type="text/css" href="vendor/codemirror/lib/codemirror.css">
 	<!--[if IE]>
 		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
 	<![endif]-->
@@ -16,38 +16,28 @@
 	<div id="content">
 		<div id="code-box" style="width:50%; float:left;">
 			<textarea id="code">
-// print the first 10 numbers in
-// the fibonaci sequence
-var count = 0;
-var prev = 0;
-var curr = 1;
-
-if(prev == curr) {
-	console.log(true);
-}
-
-function fib() {
-	var next = prev + curr;
-	console.log(next);
-	prev = curr;
-	curr = next;
-}
-
-console.log(prev);
-console.log(curr)
-
-while(++count &lt; 8) {
-	fib();
+for(var i=0; i&lt;10; i++) {
+	foo();
 }
 			</textarea>
 		</div>
-		<div id="flowchart" style="width:50%; float: left;overflow-y:scroll">
+		<div id="flowchart-container" style="width:50%; float: left;overflow-y:scroll">
 
 		</div>
 	</div>
 	<div id="footer">
 		<div>Footer Stuff here</div>
 	</div>
-	<script type="text/javascript" src="js/main.js"></script>
+	<script type="text/javascript" src="vendor/jquery/jquery.js"></script>
+	<script type="text/javascript" src="vendor/esprima/esprima.js"></script>
+	<script type="text/javascript" src="vendor/codemirror/lib/codemirror.js"></script>
+	<script type="text/javascript" src="vendor/codemirror/mode/javascript/javascript.js"></script>
+	<script type="text/javascript" src="vendor/raphael/raphael.js"></script>
+	<script type="text/javascript" src="vendor/flowchart/flowchart-1.2.5.js"></script>
+	<script type="text/javascript">
+		var plzxplain = {};
+	</script>
+	<script type="text/javascript" src="js/parser.js"></script>
+	<script type="text/javascript" src="js/index.js"></script>
 </body>
 </html>

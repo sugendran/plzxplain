@@ -72,8 +72,12 @@ table{
   display: block;
   clear: right;
   text-decoration: none;
+  border: 1px solid black;
 }
 .block, .subroutine, .question-block {
   padding-left: 1em;
 }
 
+.statement {
+  width: 160px;
+}

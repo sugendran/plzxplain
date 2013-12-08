@@ -1,0 +1,24 @@
+{
+  "name": "plzxplain",
+  "version": "0.0.0",
+  "homepage": "https://github.com/sugendran/plzxplain",
+  "authors": [
+    "Sugendran Ganess <sugendran@sugendran.net>"
+  ],
+  "description": "JS to Flowchart tool",
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "esprima": "1.x.x",
+    "codemirror": "~3.20.0",
+    "jquery": "1.x.x",
+    "raphael": "~2.1.2"
+  }
+}

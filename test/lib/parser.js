@@ -3932,6 +3932,10 @@ var binaryoperators = {
 	">=": "IS GREATER THAN OR EQUAL TO",
 };
 
+function parseNode(node) {
+	return nodeParsers[node.type](node);
+}
+
 var nodeParsers = { };
 nodeParsers["Program"] = function(tree) {
 	var steps = [];
