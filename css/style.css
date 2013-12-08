@@ -85,6 +85,10 @@ body {
   margin-top: 16px;
   box-shadow: 0 0 10px #000000;
 }
+#footer span {
+  line-height: 30px;
+  vertical-align: top;
+}
 .quickjump:before {
   content: "quick jump";
   font-weight: bold;
