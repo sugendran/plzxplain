@@ -68,16 +68,81 @@ table{
 \*------------------------------------*/
 /* GO! */
 
-.step {
-  display: block;
-  clear: right;
-  text-decoration: none;
-  border: 1px solid black;
+body {
+  background: #EEE;
+  font-family: sans-serif;
 }
-.block, .subroutine, .question-block {
-  padding-left: 1em;
+#header {
+  background: #FFF;
+  padding: 0 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 0 10px #000000;
 }
+#footer {
+  background: #FFF;
+  font-size: 0.8em;
+  padding: 8px 10px;
+  margin-top: 16px;
+  box-shadow: 0 0 10px #000000;
+}
+.quickjump:before {
+  content: "quick jump";
+  font-weight: bold;
+  font-size: 0.6em;
+  text-align: right;
+  display:block;
+  padding: 2px 8px;
 
-.statement {
-  width: 160px;
+}
+.quickjump {
+  background: #FFF;
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+.tabs {
+  padding: 8px;
+}
+.tabs a {
+  display: inline-block;
+  padding: 8px;
+  border: 1px solid black;
+  margin-right: 2px;
+  text-decoration: none;
+  color: #000;
+}
+.tabs a:hover {
+  text-decoration: underline;
+}
+#content {
+  margin: 0 10px;
+}
+.content-item {
+  min-width: 400px;
+  display: inline-block;
+  vertical-align: top;
+  background: #FFF;
+  margin: 0 10px;
+  padding: 10px;
+  box-shadow: 0 0 10px #000000;
+}
+.content-item.routine {
+  text-align: center;
+}
+.error {
+  position: absolute;
+  z-index: 100;
+  width: 400px;
+  background: #B60E0E;
+  padding: 20px;
+  color: #FFF;
+  top: 16px;
+}
+.CodeMirror {
+  border: 1px solid #eee;
+  height: auto;
+}
+.CodeMirror-scroll {
+  overflow-y: hidden;
+  overflow-x: auto;
 }

@@ -1,8 +1,10 @@
 (function(plzxplain, $, CodeMirror, flowchart) {
-	var codeMirrorObj = null;
-	var headerHeight = $("#header").height();
-	var footerHeight = $("#footer").height();
-	var flowchartOpts = {
+  "use strict";
+  var codeMirrorObj = null;
+  var headerHeight = $("#header").outerHeight();
+  var footerHeight = $("#footer").outerHeight();
+  var flowchartOpts = {
+    'maxWidth': 240,
     'line-width': 3,
     'line-length': 26,
     'text-margin': 10,
@@ -14,64 +16,95 @@
     'yes-text': 'yes',
     'no-text': 'no',
     'arrow-end': 'block'
+  };
+  var codeMirrorOpts = {
+    lineNumbers: true,
+    lineWrapping: true,
+    autofocus: true
+  };
+
+  function scaleContentBox() {
+    var w = 0;
+    $(".content-item").each(function(){
+      w += $(this).outerWidth() + 26;
+    });
+    w = Math.max(w, $(window).width());
+    $("#content, #header, #footer").width(w);
   }
 
-	function onResize() {
-		var h = $(window).height() - (headerHeight + footerHeight);
-		$("#content").height(h);
-		$("#code-box .CodeMirror-scroll").height(h);
-		// $("#flowchart-container").height(h);
-		if(codeMirrorObj) {
-			setTimeout(function(){
-				codeMirrorObj.refresh();
-			}, 0);
-		}
-	}
-	onResize();
+  function getHeight() {
+    return $(window).height() - (headerHeight + footerHeight) - 64;
+  }
 
-	function displayParseError(msg) {
-		console.error(msg);
-		$("#flowchart-container").html(msg);
-	}
+  function onResize() {
+    var h = getHeight();
+    var w = $(window).width();
 
-	var routineCount = 0;
-	function displayRoutine(routine, flowchartContainer) {
-		var lines = [];
-		for(var i=0, ii=routine.symbols.length; i<ii; i++) {
-			var symbol = routine.symbols[i];
-			lines.push(symbol.id + '=>' + symbol.type + ': ' + symbol.text);
-		}
-		for(var j=0, jj=routine.sequences.length; j<jj; j++) {
-			var sequence = routine.sequences[j];
-			lines.push(sequence.join('->'));
-		}
-		var divID = 'routine_' + (routineCount++);
-		$('<div id="' + divID + '"></div>').appendTo(flowchartContainer);
-		flowchart.parse(lines.join('\n')).drawSVG(divID, flowchartOpts);
-	}
+    $(".content-item").css("min-height", h + 'px');
+    $("#code-box .CodeMirror").height(h);
 
-	function onEditorUpdated() {
-		if(codeMirrorObj) {
-			var program = plzxplain.parse(codeMirrorObj.getValue());
+    $(".error").css("left", (w/2 - 200) + "px");
+    if(codeMirrorObj) {
+      setTimeout(function(){
+        codeMirrorObj.refresh();
+      }, 0);
+    }
+    scaleContentBox();
+  }
+  onResize();
 
-			if(program instanceof Error) {
-				displayParseError(program.message);
-			} else {
-				var flowchart = $("#flowchart-container").empty();
-				for(var i=0, ii=program.length; i<ii; i++) {
-					displayRoutine(program[i], flowchart);
-				}
-			}
-		}
-	}
-	codeMirrorObj = CodeMirror.fromTextArea(document.getElementById("code"), {autofocus: true});
-	codeMirrorObj.on('update', onEditorUpdated);
+  function displayParseError(msg) {
+    console.error(msg);
+    $(".error").html(msg).show();
+  }
 
-	// on ready we can go binding things
-	$(function(){
-		headerHeight = $("#header").height();
-		footerHeight = $("#footer").height();
-		$(window).resize(onResize).resize();
-	});
+  var routineCount = 0;
+  function displayRoutine(routine, flowchartContainer, tabsContainer) {
+    var lines = [];
+    for(var i=0, ii=routine.symbols.length; i<ii; i++) {
+      var symbol = routine.symbols[i];
+      lines.push(symbol.id + '=>' + symbol.type + ': ' + symbol.text);
+    }
+    for(var j=0, jj=routine.sequences.length; j<jj; j++) {
+      var sequence = routine.sequences[j];
+      lines.push(sequence.join('->'));
+    }
+    var divID = 'routine_' + (routineCount++);
+    $('<div id="' + divID + '" class="content-item routine"></div>').appendTo(flowchartContainer);
+    flowchart.parse(lines.join('\n')).drawSVG(divID, flowchartOpts);
+    $('<a href="#' + divID + '">' + routine.name + '</a>').appendTo(tabsContainer);
+  }
+
+  function onEditorUpdated() {
+    if(codeMirrorObj) {
+      plzxplain.parse.resetCounters();
+      var program = plzxplain.parse(codeMirrorObj.getValue());
+
+      if(program instanceof Error) {
+        displayParseError(program.message);
+      } else {
+        $(".error").hide();
+        var content = $("#content");
+        content.children(".routine").remove();
+        var tabs = $('.tabs');
+        tabs.children().not(":first").remove();
+        for(var i=0, ii=program.length; i<ii; i++) {
+          displayRoutine(program[i], content, tabs);
+        }
+        var h = getHeight();
+        $(".content-item").css("min-height", h + 'px');
+        scaleContentBox();
+      }
+    }
+  }
+  codeMirrorObj = CodeMirror.fromTextArea(document.getElementById("code"), codeMirrorOpts);
+  codeMirrorObj.on('update', onEditorUpdated);
+
+  // on ready we can go binding things
+  $(function(){
+    headerHeight = $("#header").height();
+    footerHeight = $("#footer").height();
+    $(window).resize(onResize).resize();
+  });
 
 })(this.plzxplain, this.$, this.CodeMirror, this.flowchart);

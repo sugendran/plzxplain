@@ -1,3 +1,0 @@
-[submodule "src/flowchart"]
-	path = src/flowchart
-	url = git@github.com:sugendran/flowchart.js.git

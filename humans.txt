@@ -6,10 +6,11 @@
   Software Junkie: Sugendran Ganess
   Site: http://sugendran.com
   Twitter: @sugendran
-  Location: Sydney, Australia
+  Location: London, UK
+  Repository: https://github.com/sugendran/plzxplain
 
 /* THANKS */
-  substack: https://github.com/substack/node-browserify
+  adrai: https://github.com/adrai/flowchart.js
   harry roberts: http://csswizardry.com/2011/01/the-real-html5-boilerplate/#html5-boilerplate
   ariya: https://github.com/ariya/esprima
   codemirror: http://codemirror.net/

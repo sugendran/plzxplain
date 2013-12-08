@@ -1,4 +1,3 @@
-/*globals console */
 (function(plzxplain, esprima) {
 	"use strict";
 	// this parser will take the javascript AST from esprima
@@ -40,7 +39,6 @@
 
 	var parsedResult = [];
 	var statementCounter = 1;
-	var questionCounter = 1;
 	var anonFuncCounter = 1;
 	var nodeParsers = { };
 	var binaryoperators = {
@@ -84,6 +82,7 @@
 	}
 	function parseNode(node, asCondition) {
 		if(!nodeParsers[node.type]) {
+			console.log(node);
 			throw new Error("Parser not implemented for node type " + node.type);
 		}
 		return nodeParsers[node.type](node, asCondition);
@@ -268,18 +267,22 @@
 		if(node.elements.length === 0) {
 			result += 'NOTHING';
 		} else {
+			result += '\\\n';
 			var items = [];
 			for(var i=0, ii=node.elements.length; i<ii; i++) {
 				var val = parseNode(node.elements[i]);
 				items.push(val);
 			}
-			result += items.join(', ');
+			result += items.join(', \\\n');
 		}
 		return result;
 	};
 	nodeParsers.FunctionDeclaration = function(node) {
 		var subroutineName = parseNode(node.id);
-		var action = "DECLARE SUBROUTINE " + subroutineName + " WITH " + node.params.length + " PARAMETERS";
+		var action = "DECLARE SUBROUTINE " + subroutineName;
+		if(node.params.length) {
+			action += "\\\nWITH " + node.params.length + " PARAMETERS";
+		}
 		parseRoutine(subroutineName, node.body.body);
 		return makeOperation(action, node.loc);
 	};
@@ -290,12 +293,18 @@
 		} else {
 			subroutineName = 'AnonymousFunction' + (anonFuncCounter++);
 		}
-		var action = "DECLARE SUBROUTINE " + subroutineName + " WITH " + node.params.length + " PARAMETERS";
+		var action = "DECLARE SUBROUTINE " + subroutineName;
+		if(node.params.length) {
+			action += "\\\nWITH " + node.params.length + " PARAMETERS";
+		}
 		parseRoutine(subroutineName, node.body.body);
 		return makeOperation(action, node.loc);
 	};
 	nodeParsers.BlockStatement = function(node) {
 		return parseBlock([], [], null, node.body);
+	};
+	nodeParsers.SequenceExpression = function(node) {
+		return parseBlock([], [], null, node.expressions);
 	};
 	nodeParsers.ExpressionStatement = function(node) {
 		return parseNode(node.expression);
@@ -357,12 +366,7 @@
 				returnable = parseNode(n);
 			} else {
 				result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, val);
-				if(n.type === 'UpdateExpression') {
-					returnable = parseNode(n.argument);
-					console.log(returnable);
-				} else {
-					debugger;
-				}
+				returnable = parseNode(n);
 			}
 			return returnable;
 		}
@@ -372,15 +376,33 @@
 		right = parseValue(node.right);
 		result.firstStep = result.symbols[0];
 
-		var operator = binaryoperators[node.operator] || node.operator;
+		operator = binaryoperators[node.operator] || node.operator;
 		var action = left + " " + operator + " " + right;
-		var symbol = asCondition ? makeCondition(action, node.loc) : makeOperation(action, node.loc);
+		symbol = asCondition ? makeCondition(action, node.loc) : makeOperation(action, node.loc);
 		result.symbols.push(symbol);
 		if(result.lastStep) {
 			result.sequences.push([result.lastStep.id, symbol.id]);
 		}
 		result.lastStep = symbol;
 
+		return result;
+	};
+	nodeParsers.ObjectExpression = function(node) {
+		var result = "OBJECT CONTAINING ";
+		if(node.properties.length === 0) {
+			result += 'NOTHING';
+		} else {
+			result += '\\\n';
+			var vals = [];
+			for(var i=0, ii=node.properties.length; i<ii; i++) {
+				var property = node.properties[i];
+				if(property.type !== 'Property') {
+					throw new Error("ObjectExpression property is not of type Property");
+				}
+				vals.push(parseNode(property.key) + ' \u00BB ' + parseNode(property.value));
+			}
+			result += vals.join(',\\\n');
+		}
 		return result;
 	};
 	nodeParsers.UnaryExpression = function(node) {
@@ -449,6 +471,9 @@
 		var finalSteps = [result.conditionStep];
 		// yes
 		var yesVal = parseNode(node.consequent);
+		if(isStringOrNum(yesVal)) {
+			yesVal = makeOperation(yesVal, node.consequent.loc);
+		}
 		finalSteps.push(mergeResult(result.symbols, result.sequences, null, yesVal));
 
 		result.sequences.push([result.conditionStep.id + '(yes)', result.symbols[len].id]);
@@ -458,6 +483,9 @@
 		// no
 		if(node.alternate) {
 			var noVal = parseNode(node.alternate);
+			if(isStringOrNum(noVal)) {
+				noVal = makeOperation(noVal, node.alternate.loc);
+			}
 			finalSteps.push(mergeResult(result.symbols, result.sequences, null, noVal));
 			result.sequences.push([result.conditionStep.id + '(no)', result.symbols[len].id]);
 			result.conditionStep.no = true;
@@ -467,12 +495,19 @@
 
 		return result;
 	};
+	nodeParsers.ConditionalExpression = nodeParsers.IfStatement;
 	nodeParsers.LogicalExpression = function(node) {
 		return 'VALUE OF ' + parseNode(node.left) + ' ' + node.operator + ' ' + parseNode(node.right);
 	};
 	nodeParsers.ReturnStatement = function(node) {
-		return 'RETURN ' + parseNode(node.argument);
+		if(node.argument) {
+			return 'RETURN ' + parseNode(node.argument);
+		}
+		return 'RETURN';
 	};
+	nodeParsers.ThisExpression = function(node) {
+		return 'this';
+	}
 
 	// will return an error or an array of converted items
 	function parse(str) {
@@ -483,17 +518,21 @@
 			return e;
 		}
 
-		try{
+		// try{
 			parsedResult = [];
 			parseNode(obj);
 			return parsedResult;
-		} catch(e) {
-			debugger;
-			return e;
-		}
+		// } catch(e) {
+			// debugger;
+			// return e;
+		// }
 	}
 
 	plzxplain.parse = parse;
+	plzxplain.parse.resetCounters = function() {
+		statementCounter = 1;
+		anonFuncCounter = 1;
+	};
 	plzxplain.parse.getParsers = function() { return nodeParsers; };
 
 })(this.plzxplain, this.esprima);
