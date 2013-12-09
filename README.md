@@ -11,4 +11,7 @@ User enters code -> parser -> translate to flowchart.js -> render -> step throug
 TODO:
 -----
 
-Fix up the test suite
+ * switch statements
+ * Fix up the test suite
+ * bundle js together
+ * on hover of symbols highlight code
