@@ -459,6 +459,39 @@
     result.lastStep = test.lastStep;
     return result;
   };
+  nodeParsers.ForInStatement = function(node) {
+    var left, right;
+    var result = blankResult();
+
+    if(node.left.type === 'VariableDeclaration') {
+      var leftVal = parseNode(node.left);
+      result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, leftVal);
+      left = parseNode(node.left.declarations[0].id);
+    } else {
+      left = parseNode(node.left);
+    }
+    right = flattenedValue(parseNode(node.right));
+
+    var cond = makeCondition(right + ' HAS MORE KEYS', node.right.loc);
+    result.symbols.push(cond);
+    if(result.lastStep) {
+      pushSequence(result.sequences, result.lastStep, cond);
+    }
+
+
+    var actionStep = makeOperation('SET ' + left + ' = NEXT KEY IN ' + right, node.left);
+    result.symbols.push(actionStep);
+    pushSequence(result.sequences, cond, actionStep);
+    result.lastStep = actionStep;
+
+    var bodyVal = parseNode(node.body);
+    result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, bodyVal);
+    pushSequence(result.sequences, bodyVal.lastStep, cond);
+    result.lastStep = cond;
+    result.conditionStep = cond;
+    result.firstStep = result.symbols[0];
+    return result;
+  };
   nodeParsers.UpdateExpression = function(node) {
     var obj = parseNode(node.argument);
     var action = "SET " + obj + " = ";
