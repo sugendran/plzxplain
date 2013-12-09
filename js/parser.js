@@ -283,7 +283,7 @@
     if(node.elements.length === 0) {
       result = 'EMPTY ARRAY';
     } else {
-      result += 'ARRAY CONTAINING \\\n';
+      result = 'ARRAY CONTAINING \\\n';
       var items = [];
       for(var i=0, ii=node.elements.length; i<ii; i++) {
         var val = parseNode(node.elements[i]);
@@ -545,6 +545,13 @@
   };
   nodeParsers.ThisExpression = function() {
     return 'this';
+  };
+  nodeParsers.ThrowStatement = function(node) {
+    if(node.argument) {
+      var val = parseNode(node.argument);
+      return 'THROW ' + flattenedValue(val);
+    }
+    return 'THROW';
   };
 
   // will return an error or an array of converted items

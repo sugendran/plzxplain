@@ -11,8 +11,6 @@ User enters code -> parser -> translate to flowchart.js -> render -> step throug
 TODO:
 -----
 
- * forIn statements
- * throw statements
  * switch statements
  * Fix up the test suite
  * bundle js together
