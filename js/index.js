@@ -1,6 +1,7 @@
 (function(plzxplain, $, CodeMirror, flowchart) {
   "use strict";
   var codeMirrorObj = null;
+  var codeTextArea = document.getElementById('code');
   var headerHeight = $("#header").outerHeight();
   var footerHeight = $("#footer").outerHeight();
   var flowchartOpts = {
@@ -77,6 +78,7 @@
     }
     var divID = 'routine_' + (routineCount++);
     $('<div id="' + divID + '" class="content-item routine"></div>').appendTo(flowchartContainer);
+    console.log(lines.join('\n'));
     flowchart.parse(lines.join('\n')).drawSVG(divID, flowchartOpts);
     $('<a href="#' + divID + '">' + routine.name + '</a>').appendTo(tabsContainer);
   }
@@ -109,7 +111,31 @@
       }
     }
   }
-  codeMirrorObj = CodeMirror.fromTextArea(document.getElementById("code"), codeMirrorOpts);
+
+  var matches = new RegExp("gist=([0-9a-z]+)", "i").exec(window.location.href);
+  if(matches && matches.length === 2) {
+    codeTextArea.innerText = '// Loading gist . . . ';
+    var gistId = matches[1];
+    $.ajax({
+      url: 'https://api.github.com/gists/' + gistId,
+      type: 'GET',
+      dataType: 'jsonp'
+    }).error(function() {
+      codeMirrorObj.setValue('// Failed to load gist');
+    }).success(function(gistData) {
+      var newContent = "// Gist didn't contain any JavaScript";
+      var files = gistData.data.files;
+      for(var filename in files) {
+        if(files[filename].type === "application/javascript") {
+          newContent = files[filename].content;
+          break;
+        }
+      }
+      codeMirrorObj.setValue(newContent);
+    });
+  }
+
+  codeMirrorObj = CodeMirror.fromTextArea(codeTextArea, codeMirrorOpts);
   codeMirrorObj.on('update', onEditorUpdated);
 
   // on ready we can go binding things
