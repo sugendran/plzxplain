@@ -97,17 +97,21 @@
     return nodeParsers[node.type](node, asCondition);
   }
   function pushSequence(sequenceArr, currentStep, val) {
+    var i, ii;
     if(!currentStep) {
       return;
     }
     if(currentStep.constructor === Array) {
-      for(var i=0, ii=currentStep.length; i<ii; i++) {
+      for(i=0, ii=currentStep.length; i<ii; i++) {
         pushSequence(sequenceArr, currentStep[i], val);
       }
       return;
     }
     if(val.constructor === Array) {
-      val = val[0];
+      for(i=0, ii=val.length; i<ii; i++) {
+        pushSequence(sequenceArr, currentStep, val[i]);
+      }
+      return;
     }
     if(currentStep.type === 'condition') {
       if(currentStep.yes) {
@@ -160,6 +164,7 @@
         }
         currentStep = mergeResult(symbolsArr, sequenceArr, currentStep, val);
       } else {
+        console.log(node);
         var step = makeOperation('Error parsing unknown node type - ' + node.type);
         symbolsArr.push(step);
         pushSequence(sequenceArr, currentStep, step);
@@ -485,8 +490,13 @@
     result.lastStep = actionStep;
 
     var bodyVal = parseNode(node.body);
+    if(isStringOrNum(bodyVal)) {
+      bodyVal = makeOperation(bodyVal, node.body.loc);
+    } else if(bodyVal.symbols.length === 0) {
+      bodyVal = makeOperation('DO NOTHING', node.body.loc);
+    }
     result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, bodyVal);
-    pushSequence(result.sequences, bodyVal.lastStep, cond);
+    pushSequence(result.sequences, bodyVal.lastStep ? bodyVal.lastStep : bodyVal, cond);
     result.lastStep = cond;
     result.conditionStep = cond;
     result.firstStep = result.symbols[0];
@@ -533,6 +543,45 @@
     return result;
   };
   nodeParsers.ConditionalExpression = nodeParsers.IfStatement;
+  nodeParsers.SwitchStatement = function(node) {
+    console.log(JSON.stringify(node));
+    var discriminant = parseNode(node.discriminant);
+    var cases = [];
+    for(var i=0, ii=node.cases.length; i<ii; i++) {
+      var breaks = false;
+      var caseNode = node.cases[i];
+      var testVal = parseNode(caseNode.test);
+      var cond = makeCondition( discriminant + ' EQUALS ' + testVal, caseNode.test.loc);
+      var consequent = [];
+      for(var j=0, jj=caseNode.consequent.length; j<jj; j++) {
+        if(caseNode.consequent[j].type === 'BreakStatement') {
+          breaks = true;
+        } else {
+          consequent.push(caseNode.consequent[j]);
+        }
+      }
+      var caseVal = parseBlock([cond], [], cond, consequent);
+      caseVal.firstStep = cond;
+      caseVal.condition = cond;
+      caseVal.breaks = breaks;
+      cases.push(caseVal);
+    }
+    if(cases.length === 0) {
+      return makeOperation("EMPTY CASE STATEMENT", node.loc);
+    } else {
+      var result = blankResult();
+      result.firstStep = [];
+      console.log(JSON.stringify(cases));
+      for(var c=0, cc=cases.length; c<cc; c++) {
+        var cv = cases[c];
+        if( c === 0 || c>0 && !cases[c-1].breaks) {
+          result.firstStep.push(cv.firstStep);
+        }
+        result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, cv);
+      }
+      return result;
+    }
+  };
   nodeParsers.LogicalExpression = function(node) {
     return 'VALUE OF ' + parseNode(node.left) + ' ' + node.operator + ' ' + parseNode(node.right);
   };
@@ -552,6 +601,9 @@
       return 'THROW ' + flattenedValue(val);
     }
     return 'THROW';
+  };
+  nodeParsers.EmptyStatement = function() {
+    return 'DO NOTHING';
   };
 
   // will return an error or an array of converted items
