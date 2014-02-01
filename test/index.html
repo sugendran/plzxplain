@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html class="no-js">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>PlzXplain: Tests</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="jasmine-2.0.0/jasmine.css">
+
+    <script type="text/javascript" src="jasmine-2.0.0/jasmine.js"></script>
+    <script type="text/javascript" src="jasmine-2.0.0/jasmine-html.js"></script>
+    <script type="text/javascript" src="jasmine-2.0.0/boot.js"></script>
+
+    <script type="text/javascript" src="../vendor/esprima/esprima.js"></script>
+    <script type="text/javascript">
+      var plzxplain = {};
+
+      // helper items
+      var start_Program = {
+        "type": "start",
+        "id": "start_Program",
+        "text": "Start Program"
+      };
+      var end_Program = {
+        "type": "end",
+        "id": "end_Program",
+        "text": "End Program"
+      };
+
+      function getLocation(startLine, startCol, endLine, endCol) {
+        return {
+          start: {
+            line: startLine,
+            column: startCol
+          },
+          end: {
+            line: endLine,
+            column: endCol
+          }
+        };
+      }
+      beforeEach(function() {
+        plzxplain.parse.resetCounters();
+      });
+    </script>
+    <script type="text/javascript" src="../js/parser.js"></script>
+
+    <!-- include specs here -->
+    <script type="text/javascript" src="specs/statements.js"></script>
+    <script type="text/javascript" src="specs/questions.js"></script>
+    <script type="text/javascript" src="specs/functions.js"></script>
+    <script type="text/javascript" src="specs/itteration.js"></script>
+    <script type="text/javascript" src="specs/switches.js"></script>
+
+  </head>
+  <body>
+
+  </body>
+</html>
