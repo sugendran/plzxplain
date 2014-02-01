@@ -91,7 +91,6 @@
   }
   function parseNode(node, asCondition) {
     if(!nodeParsers[node.type]) {
-      console.log(node);
       throw new Error("Parser not implemented for node type " + node.type);
     }
     return nodeParsers[node.type](node, asCondition);
@@ -164,7 +163,6 @@
         }
         currentStep = mergeResult(symbolsArr, sequenceArr, currentStep, val);
       } else {
-        console.log(node);
         var step = makeOperation('Error parsing unknown node type - ' + node.type);
         symbolsArr.push(step);
         pushSequence(sequenceArr, currentStep, step);
@@ -544,6 +542,7 @@
   };
   nodeParsers.ConditionalExpression = nodeParsers.IfStatement;
   nodeParsers.SwitchStatement = function(node) {
+    throw new Error("Sadly switch statements are not supported yet");
     console.log(JSON.stringify(node));
     var discriminant = parseNode(node.discriminant);
     var cases = [];
@@ -574,9 +573,12 @@
       console.log(JSON.stringify(cases));
       for(var c=0, cc=cases.length; c<cc; c++) {
         var cv = cases[c];
+        // if it's the first item or the previous case didn't break
         if( c === 0 || c>0 && !cases[c-1].breaks) {
           result.firstStep.push(cv.firstStep);
         }
+        // if there are no more steps then the (no) should move on to the next
+        // thing in the program
         result.lastStep = mergeResult(result.symbols, result.sequences, result.lastStep, cv);
       }
       return result;

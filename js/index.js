@@ -1,3 +1,4 @@
+var plzxplain = {};
 (function(plzxplain, $, CodeMirror, flowchart) {
   "use strict";
   var codeMirrorObj = null;

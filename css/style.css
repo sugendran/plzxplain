@@ -78,6 +78,11 @@ body {
   margin-bottom: 16px;
   box-shadow: 0 0 10px #000000;
 }
+#header a {
+  position: absolute;
+  right: 20px;
+  top: 12px;
+}
 #footer {
   background: #FFF;
   font-size: 0.8em;
